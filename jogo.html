@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>JOGO</title>
+    <style>
+        body{
+            background: rgb(46,138,255);
+            background: linear-gradient(94deg, rgba(46,138,255,1) 0%, rgba(31,223,92,1) 100%);
+        }
+        canvas{
+            position: absolute;
+            top: 0px;
+            bottom: 0px;
+            left: 0px;
+            right: 0px;
+            margin: auto;
+            border-radius: 23px;
+            transition: box-shadow 0.5s;
+        }
+        canvas:hover{
+            box-shadow: 0px 0px 25px rgba(0, 0, 0, 0.678);
+        }
+    </style>
+</head>
+<body>
+
+    <script>
+        var img_cima = new Image();
+        var img_baixo = new Image();
+        var img_bird = new Image();
+        var bg = new Image();
+        var logo = new Image();
+        var gr = new Image();
+        var go = new Image();
+        var tap = new Image();
+        var img_chao = new Image();
+        var vez = 1;
+        var canvas, ctx, altura, largura, frames = 0, estadoAtual, velocidade = 5, tamAbertura = 150,
+
+        estado = {
+            jogar: 0,
+            jogando: 1,
+            perdeu: 2
+        },
+        
+        chao = {
+            y: 450,
+            altura: 50,
+            cor: 'green',
+
+            desenha: function(){
+                img_chao.src = "img/chao.png";
+                ctx.drawImage(img_chao, 0, 450);
+            }
+        },
+
+        score = {
+            validate: true,
+            x: 270,
+            y: 190,
+            valor: 0,
+            desenha: function(){
+                ctx.fillStyle = "white";
+                ctx.font = "90px Aharoni";
+                ctx.fillText(this.valor, this.x, this.y);
+                ctx.lineWidth = 4;
+                ctx.strokeText(this.valor, this.x, this.y);
+            }
+        }
+
+        bird = {
+            x: 100,
+            y: 190,
+            altura: 24,
+            largura: 34,
+            gravidade: 0.3,
+            velocidade: 0,
+            forcaDoPulo: 6,
+            atualiza: function(){
+                this.velocidade += this.gravidade;
+                this.y += this.velocidade;
+                if(this.y > chao.y - this.altura){
+                    this.y = chao.y - this.altura;
+                }
+            },
+            pula: function(){
+                this.velocidade = -this.forcaDoPulo;
+            },
+            desenha: function(){
+                if(vez == 1){
+                    img_bird.src = "img/bird1.png";
+                    ctx.drawImage(img_bird, this.x, this.y)
+                    vez++;
+                }else if(vez == 2){
+                    img_bird.src = "img/bird2.png";
+                    ctx.drawImage(img_bird, this.x, this.y)
+                    vez++;
+                }else if(vez == 3){
+                    img_bird.src = "img/bird3.png";
+                    ctx.drawImage(img_bird, this.x, this.y)
+                    vez = 1;
+                }
+            }
+        },
+        
+        obstaculos = {
+            posibilidades: [125,250,100,200,150,275,50,225,75,175],
+            _obs_baixo: [],
+            _obs_cima: [],
+            tempoInsere: 0,
+
+            insere: function(){
+                this._obs_baixo.push({
+                    x: 600,
+                    largura: 52,
+                    altura: this.posibilidades[Math.floor(Math.random() * 10)]
+                });
+                this._obs_cima.push({
+                    x: 600,
+                    y: 0,
+                    largura: 52,
+                    altura: ( this._obs_baixo.length > 1 ? 505 - (this._obs_baixo[1].altura + tamAbertura) : 505 - (this._obs_baixo[0].altura + tamAbertura) )
+                })
+                this.tempoInsere = 65;
+            },
+
+            atualiza: function(){
+                if(this.tempoInsere == 0){
+                    this.insere();
+                }else{
+                    this.tempoInsere--;
+                }
+
+                for(var i = 0, tam = this._obs_baixo.length; i < tam; i++){
+                    var obs = this._obs_cima[i];
+                    obs.x -= velocidade;
+
+                    //COLISÃO CIMA -------------!!!!!!!!!!!!!!!!!!!!!
+                    if(bird.x < obs.x + obs.largura && bird.x + bird.largura > obs.x && bird.y < obs.altura){
+                        estadoAtual = estado.perdeu;
+                    }   
+                    var obs = this._obs_baixo[i];
+                    obs.x -= velocidade;
+
+                    //COLISÃO BAIXO -------------!!!!!!!!!!!!!!!!!!!!!
+                    if(bird.x < obs.x + obs.largura && bird.x + bird.largura >= obs.x && bird.y + bird.altura >= chao.y - obs.altura){
+                        estadoAtual = estado.perdeu;
+                    } else if(obs.x <= -obs.largura){
+                        this._obs_baixo.splice(i, 1);
+                        this._obs_cima.splice(i, 1);
+                        tam--;
+                        i--;
+                    }
+
+                    //SCORE
+                    if(97 == obs.x + obs.largura){
+                        score.valor++;
+                    }
+                }
+            },
+
+            limpa: function(){
+                this._obs_cima = [];
+                this._obs_baixo = [];
+            },
+
+            desenha: function(){
+                for(var i = 0, tam = this._obs_baixo.length; i < tam; i++){
+                    var obs = this._obs_baixo[i];
+                    img_baixo.src = "img/baixo.png";
+                    ctx.drawImage(img_baixo, obs.x, chao.y - obs.altura);
+
+                    var obs = this._obs_cima[i];
+                    img_cima.src = "img/cima.png";
+                    ctx.drawImage(img_cima, obs.x, obs.altura - 400);
+                }
+            }
+        };
+
+        function click(){
+            if(estadoAtual == estado.jogando)
+                bird.pula();
+            else if(estadoAtual == estado.jogar){
+                estadoAtual = estado.jogando;
+            }else if(estadoAtual == estado.perdeu){
+                estadoAtual = estado.jogar;
+                bird.y = 0;
+                bird.velocidade = 0;
+            }
+        }
+        function main(){
+            altura = window.innerHeight;
+            largura = window.innerWidth;
+
+            if(largura >= 500){
+                largura = 600;
+                altura = 500;
+            }
+
+            canvas = document.createElement('canvas');
+            canvas.width = largura;
+            canvas.height = altura;
+            canvas.style.border = '1px solid black';
+            document.body.appendChild(canvas);
+            ctx = canvas.getContext('2d');
+
+            document.addEventListener("mousedown", click);
+
+            estadoAtual = estado.jogar;
+            roda();
+        }
+        function roda(){
+            atualiza();
+            desenha();
+            window.requestAnimationFrame(roda);
+        }
+        function atualiza(){
+            frames++;
+            bird.atualiza();
+            if(estadoAtual == estado.jogando){
+                obstaculos.atualiza();
+            }else if(estadoAtual == estado.perdeu){
+                obstaculos.limpa();
+            }
+        }
+        function desenha(){
+            bg.src = "img/background.png";
+            ctx.drawImage(bg, 0, 0);
+
+            if(estadoAtual == estado.jogar){
+                score.valor = 0;
+                bird.y = 250;
+                logo.src = "img/logo.png";
+                ctx.drawImage(logo, 30, 30);
+                gr.src = "img/getReady.png";
+                ctx.drawImage(gr, 213, 210);
+                tap.src = "img/tap.png";
+                ctx.drawImage(tap, 280, 265);
+                bird.velocidade = -5;
+            } else if(estadoAtual == estado.perdeu){
+                go.src = "img/gameOver.png";
+                ctx.drawImage(go, 213, 160);
+
+                ctx.fillStyle = "white";
+                ctx.font = "bold 30pt Tahoma";
+                ctx.fillText('Pontuação: ' + score.valor, 160, 250);
+                ctx.lineWidth = 2;
+                ctx.strokeText('Pontuação: ' + score.valor, 160, 250);
+
+            } else if(estadoAtual == estado.jogando){
+                obstaculos.desenha();
+                score.desenha();
+            }
+            
+            bird.desenha();
+            obstaculos.desenha();
+            chao.desenha();
+        }
+         
+        main();
+
+    </script>
+
+</body>
+</html>
